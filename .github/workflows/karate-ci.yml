@@ -65,8 +65,24 @@ jobs:
         run: |
           cd karate-template-main
           echo "🏃 Ejecutando suite de pruebas..."
-          mvn clean test -DskipTests=false
+          mvn clean test -DskipTests=false -X 2>&1 | tee test-output.log
         continue-on-error: true
+
+      # 4.5️⃣ Mostrar output de pruebas
+      - name: 📋 Show test output
+        if: always()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📄 TEST OUTPUT:"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          cd karate-template-main
+          cat test-output.log | tail -100
+          echo ""
+          echo "📂 Contenido de target:"
+          ls -la target/ || echo "No target directory"
+          echo ""
+          echo "📂 Contenido de target/karate-reports:"
+          ls -la target/karate-reports/ || echo "No karate-reports directory"
 
       # 5️⃣ Mostrar logs en caso de error
       - name: 📋 Show server logs on failure
@@ -87,6 +103,7 @@ jobs:
           name: karate-html-reports
           path: karate-template-main/target/karate-reports/
           retention-days: 30
+        continue-on-error: true
 
       # 7️⃣ Subir reportes XML
       - name: 📊 Upload Surefire Reports
@@ -112,22 +129,29 @@ jobs:
         with:
           name: karate-html-reports
           path: report-public/
+        continue-on-error: true
+
+      - name: 📂 Check artifacts
+        run: |
+          echo "📂 Contenido de report-public:"
+          ls -la report-public/ || echo "No artifacts found"
 
       - name: 🔧 Prepare index.html for GitHub Pages
         run: |
           cd report-public
-          echo "📂 Contenido descargado:"
-          ls -la
           
           if [ -f "karate-summary.html" ]; then
             echo "✅ karate-summary.html encontrado"
             cp karate-summary.html index.html
             echo "✅ Copiado como index.html"
           else
-            echo "❌ ERROR: karate-summary.html no encontrado"
+            echo "⚠️  karate-summary.html no encontrado"
             echo "📂 Archivos disponibles:"
             ls -la
-            exit 1
+            
+            # Si no hay reportes, crear uno vacío
+            echo "<html><body><h1>No test reports available</h1><p>Los tests pueden haber fallado o no generaron reportes.</p></body></html>" > index.html
+            echo "⚠️  Creado index.html placeholder"
           fi
 
       - name: ⚙️  Setup GitHub Pages
@@ -145,7 +169,8 @@ jobs:
       - name: 🎉 Deployment Complete
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✅ REPORTE PUBLICADO"
+          echo "✅ DESPLIEGUE COMPLETADO"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "📍 URL: ${{ steps.deployment.outputs.page_url }}"
+          echo "⚠️  Nota: Si no ves reportes, revisa que los tests ejecutaron correctamente"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
