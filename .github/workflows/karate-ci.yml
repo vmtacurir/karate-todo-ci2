@@ -117,13 +117,17 @@ jobs:
   deploy-report:
     needs: test
     runs-on: ubuntu-latest
-    if: needs.test.result == 'success'
+    if: always()
     
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     
     steps:
+      - name: 📁 Ensure report-public exists
+        run: |
+          mkdir -p report-public
+
       - name: 📥 Download HTML Reports
         uses: actions/download-artifact@v4
         with:
@@ -138,6 +142,7 @@ jobs:
 
       - name: 🔧 Prepare index.html for GitHub Pages
         run: |
+          mkdir -p report-public
           cd report-public
           
           if [ -f "karate-summary.html" ]; then
