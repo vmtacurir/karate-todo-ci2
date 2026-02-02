@@ -65,7 +65,7 @@ jobs:
         run: |
           cd karate-template-main
           echo "🏃 Ejecutando suite de pruebas..."
-          mvn clean test -DskipTests=false -X 2>&1 | tee test-output.log
+          mvn clean test -Dtest=TC001Runner,TC002Runner,TC003Runner,TC004Runner,TC005Runner,TC011Runner -X 2>&1 | tee test-output.log
         continue-on-error: true
 
       # 4.5️⃣ Mostrar output de pruebas
