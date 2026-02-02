@@ -41,16 +41,14 @@ Feature: TC-API-011 - Creación Múltiple de Tareas (Data-Driven)
 
   Scenario: Verificar que todas las tareas fueron creadas
     # Obtener listado completo después de crear todas las tareas del outline
-    * print '
-===== Verificando listado completo ====='
+    * print '===== Verificando listado completo ====='
     When method get
     Then status 200
     And match response == '#[5]'
     * print '✅ Total de tareas creadas:', response.length
     
     # Verificar que contiene las tareas esperadas
-    * print '
-===== Verificando contenido ====='
+    * print '===== Verificando contenido ====='
     And match response contains deep { title: 'Disenar casos de prueba para API REST', complete: false }
     * print '✅ Tarea 1 encontrada'
     
@@ -66,5 +64,4 @@ Feature: TC-API-011 - Creación Múltiple de Tareas (Data-Driven)
     And match response contains deep { title: 'Configurar ambiente de pruebas con Maven', complete: true }
     * print '✅ Tarea 5 encontrada'
     
-    * print '
-===== PRUEBA DATA-DRIVEN COMPLETADA EXITOSAMENTE ====='
+    * print '===== PRUEBA DATA-DRIVEN COMPLETADA EXITOSAMENTE ====='
