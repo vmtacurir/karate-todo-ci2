@@ -117,7 +117,7 @@ jobs:
   deploy-report:
     needs: test
     runs-on: ubuntu-latest
-    if: always()
+    if: needs.test.result == 'success'
     
     environment:
       name: github-pages
