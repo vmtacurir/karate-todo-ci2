@@ -1,0 +1,188 @@
+name: Karate CI Tests (Completo)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # 1️⃣ PREPARACIÓN: Descargar código y configurar entorno
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      
+      - name: 📥 Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: ☕ Configurar Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'  # ← Cachea dependencias Maven (más rápido)
+
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # 2️⃣ SERVIDOR: Levantar la aplicación TODO en background
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      
+      - name: 🚀 Levantar servidor TODO
+        run: |
+          cd karate-todo-main
+          echo "🔄 Iniciando servidor en background..."
+          nohup mvn clean test -Dtest=LocalRunner > ../server.log 2>&1 &
+          
+          echo "⏳ Esperando a que el servidor esté listo..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8080 > /dev/null 2>&1; then
+              echo "✅ Servidor corriendo en http://localhost:8080"
+              break
+            fi
+            echo "   Intento $i/30..."
+            sleep 2
+          done
+          
+          # Verificar que realmente está corriendo
+          if ! curl -s http://localhost:8080 > /dev/null 2>&1; then
+            echo "❌ ERROR: El servidor no inició correctamente"
+            echo "📄 Logs del servidor:"
+            cat ../server.log
+            exit 1
+          fi
+          
+          echo "🎉 Servidor listo para recibir pruebas"
+
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # 3️⃣ PRUEBAS: Ejecutar tests de Karate
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      
+      - name: 🧪 Ejecutar pruebas Karate
+        run: |
+          cd karate-template-main
+          echo "🏃 Ejecutando suite de pruebas..."
+          mvn clean test
+        continue-on-error: true  # ← Continúa aunque fallen tests
+
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # 4️⃣ DEBUG: Mostrar logs si algo falla
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      
+      - name: 📋 Mostrar logs del servidor (si falla)
+        if: failure()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📄 LOGS DEL SERVIDOR TODO:"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          cat server.log
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📄 LOGS DE KARATE:"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          cat karate-template-main/target/karate.log || echo "No hay logs de Karate"
+
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # 5️⃣ REPORTES: Subir artefactos (HTML, JSON, XML)
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      
+      - name: 📦 Subir reportes HTML
+        uses: actions/upload-artifact@v4
+        if: always()  # ← Sube reportes incluso si fallan tests
+        with:
+          name: karate-html-reports
+          path: karate-template-main/target/karate-reports/
+          retention-days: 30  # ← Guardar 30 días
+
+      - name: 📊 Subir reportes JUnit XML
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: surefire-reports
+          path: karate-template-main/target/surefire-reports/
+          retention-days: 30
+
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      # 6️⃣ RESUMEN: Mostrar estadísticas en consola
+      # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      
+      - name: 📈 Resumen de resultados
+        if: always()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 RESULTADOS DE EJECUCIÓN"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          if [ -f "karate-template-main/target/surefire-reports/*.xml" ]; then
+            echo "✅ Reportes generados correctamente"
+            echo ""
+            echo "📁 Ubicación de reportes:"
+            echo "   - HTML: target/karate-reports/karate-summary.html"
+            echo "   - XML:  target/surefire-reports/"
+            echo ""
+          else
+            echo "⚠️  No se encontraron reportes XML"
+          fi
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 🌐 GITHUB PAGES: Publicar reportes en la web
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
+  deploy-report:
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()  # ← Despliega incluso si fallan tests
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: 📥 Descargar reportes generados
+        uses: actions/download-artifact@v4
+        with:
+          name: karate-html-reports
+          path: report-public/
+
+      - name: 🔧 Preparar index.html para GitHub Pages
+        run: |
+          cd report-public
+          
+          if [ -f "karate-summary.html" ]; then
+            echo "✅ Copiando karate-summary.html → index.html"
+            cp karate-summary.html index.html
+          else
+            echo "❌ ERROR: karate-summary.html no encontrado"
+            echo "📂 Contenido de report-public/:"
+            ls -la
+            exit 1
+          fi
+
+      - name: ⚙️  Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: 📤 Subir artefactos a Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'report-public/'
+
+      - name: 🚀 Desplegar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: 🎉 Reporte publicado
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🌐 Reporte disponible en:"
+          echo "   ${{ steps.deployment.outputs.page_url }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
