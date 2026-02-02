@@ -34,8 +34,8 @@ jobs:
       - name: 🚀 Start TODO Server
         run: |
           cd karate-todo-main
-          echo "📍 Iniciando servidor TODO..."
-          nohup mvn clean test -Dtest=LocalRunner > ../server.log 2>&1 &
+            echo "📍 Iniciando servidor TODO (LocalRunner)..."
+            nohup mvn clean test -Dtest=LocalRunner > ../server.log 2>&1 &
           SERVER_PID=$!
           echo "Server PID: $SERVER_PID"
           
